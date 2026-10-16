@@ -2,85 +2,584 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Time Video</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Always-on-top Picture-in-Picture digital clock and timer progressive web app">
+  <meta name="theme-color" content="#0284c7">
+
+  <!-- iOS & Mobile PWA Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Time Video">
+
+  <title>Time Video - Picture-in-Picture Clock PWA</title>
+
+  <!-- PWA Manifest & Icons -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="apple-touch-icon" sizes="192x192" href="./icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+
+  <!-- Google Font: Outfit & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <style>
+    :root {
+      --bg-primary: #090d16;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --accent-cyan: #38bdf8;
+      --accent-blue: #0284c7;
+      --accent-hover: #0369a1;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --pill-bg: rgba(56, 189, 248, 0.12);
+      --pill-border: rgba(56, 189, 248, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      min-height: 100dvh;
+      background: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(2, 132, 199, 0.18) 0%, transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(56, 189, 248, 0.08) 0%, transparent 40%);
+      color: var(--text-main);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      background: #f4f4f4;
+      padding: env(safe-area-inset-top, 20px) 16px env(safe-area-inset-bottom, 20px) 16px;
+      overflow-x: hidden;
     }
-    #startPip {
-      padding: 12px 20px;
-      font-size: 18px;
-      border: none;
-      background: #007aff;
-      color: white;
-      border-radius: 8px;
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: 24px;
+      padding: 28px 24px;
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 30px -10px rgba(56, 189, 248, 0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+      object-fit: cover;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 40%, var(--accent-cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      background: var(--pill-bg);
+      border: 1px solid var(--pill-border);
+      color: var(--accent-cyan);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    /* Video & Preview Box */
+    .video-wrapper {
+      width: 100%;
+      background: #020617;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 12px;
+      position: relative;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #pipVideo {
+      width: 100%;
+      height: auto;
+      max-height: 220px;
+      border-radius: 10px;
+      background: #000;
+      display: block;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    }
+
+    .pip-active-badge {
+      display: none;
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(16, 185, 129, 0.9);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      z-index: 2;
+    }
+
+    /* Customization Settings Bar */
+    .controls-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .control-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: var(--text-muted);
       cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: all 0.2s ease;
+      user-select: none;
     }
-	#pipVideo{
-		padding: 10px
-	}
+
+    .control-chip:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+    }
+
+    .control-chip.active {
+      background: rgba(2, 132, 199, 0.16);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .control-label {
+      font-size: 10px;
+      opacity: 0.75;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .control-value {
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* Main CTA Buttons */
+    .actions {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-pip {
+      width: 100%;
+      padding: 14px 20px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      background: linear-gradient(135deg, var(--accent-blue) 0%, #0369a1 100%);
+      color: white;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 8px 20px -4px rgba(2, 132, 199, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-pip:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px -4px rgba(2, 132, 199, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-pip:active {
+      transform: translateY(1px);
+      box-shadow: 0 4px 12px -2px rgba(2, 132, 199, 0.5);
+    }
+
+    .btn-install {
+      display: none;
+      width: 100%;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: rgba(56, 189, 248, 0.06);
+      color: var(--accent-cyan);
+      border-radius: 12px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-install:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.5);
+    }
+
+    .footer {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0.8;
+    }
+
+    .footer-dot {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    /* Hidden Stream Canvas */
+    #myCanvas {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <canvas id="myCanvas" width="300" height="200" style="display:none;"></canvas>
-  <video id="pipVideo" autoplay muted playsinline></video>
-  <button id="startPip">PiP</button>
+
+  <canvas id="myCanvas" width="480" height="300"></canvas>
+
+  <main class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <img src="./icon-192.png" alt="Time Video Icon" class="brand-icon">
+        <div>
+          <h1 class="brand-title">Time Video</h1>
+          <p class="brand-subtitle">PiP Floating Clock</p>
+        </div>
+      </div>
+      <div class="status-badge" id="pipBadgeContainer">
+        <span class="status-dot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </header>
+
+    <!-- Preview Frame -->
+    <section class="video-wrapper">
+      <span class="pip-active-badge" id="activeBadge">In PiP</span>
+      <video id="pipVideo" autoplay muted playsinline></video>
+    </section>
+
+    <!-- Customization Options -->
+    <section class="controls-grid" aria-label="Clock Controls">
+      <button class="control-chip active" id="toggleFormat" type="button" title="Toggle 12/24 hour format">
+        <span class="control-label">Format</span>
+        <span class="control-value" id="formatVal">12-Hour</span>
+      </button>
+
+      <button class="control-chip active" id="toggleDate" type="button" title="Toggle date visibility">
+        <span class="control-label">Date</span>
+        <span class="control-value" id="dateVal">Show</span>
+      </button>
+
+      <button class="control-chip active" id="toggleTheme" type="button" title="Toggle dark/light PiP display">
+        <span class="control-label">Canvas Style</span>
+        <span class="control-value" id="themeVal">Dark</span>
+      </button>
+    </section>
+
+    <!-- Actions -->
+    <div class="actions">
+      <button id="startPip" class="btn-pip" type="button" title="Open Picture-in-Picture window">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="3" ry="3"></rect>
+          <rect x="12" y="11" width="8" height="6" rx="1.5" ry="1.5" fill="currentColor" fill-opacity="0.3"></rect>
+        </svg>
+        <span>Open Picture-in-Picture</span>
+      </button>
+
+      <button id="installBtn" class="btn-install" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Install PWA</span>
+      </button>
+    </div>
+
+    <!-- Footer Note -->
+    <footer class="footer">
+      <span>Always on top</span>
+      <span class="footer-dot"></span>
+      <span>100% Offline Ready</span>
+      <span class="footer-dot"></span>
+      <span id="swStatus">PWA Active</span>
+    </footer>
+  </main>
 
   <script>
+    // State management & Persistence
+    const state = {
+      is24Hour: localStorage.getItem('tv_24h') === 'true',
+      showDate: localStorage.getItem('tv_showDate') !== 'false',
+      darkTheme: localStorage.getItem('tv_darkTheme') !== 'false'
+    };
+
     const canvas = document.getElementById("myCanvas");
     const ctx = canvas.getContext("2d");
     const video = document.getElementById("pipVideo");
     const pipBtn = document.getElementById("startPip");
+    const activeBadge = document.getElementById("activeBadge");
+    const statusText = document.getElementById("statusText");
 
-    let counter = 0;
+    const formatBtn = document.getElementById("toggleFormat");
+    const formatVal = document.getElementById("formatVal");
+    const dateBtn = document.getElementById("toggleDate");
+    const dateVal = document.getElementById("dateVal");
+    const themeBtn = document.getElementById("toggleTheme");
+    const themeVal = document.getElementById("themeVal");
 
-    // Draw custom UI continuously
+    function updateControlLabels() {
+      formatVal.textContent = state.is24Hour ? "24-Hour" : "12-Hour";
+      dateVal.textContent = state.showDate ? "Show" : "Hide";
+      themeVal.textContent = state.darkTheme ? "Dark" : "Light";
+
+      formatBtn.classList.toggle("active", state.is24Hour);
+      dateBtn.classList.toggle("active", state.showDate);
+      themeBtn.classList.toggle("active", state.darkTheme);
+    }
+
+    formatBtn.addEventListener("click", () => {
+      state.is24Hour = !state.is24Hour;
+      localStorage.setItem('tv_24h', state.is24Hour);
+      updateControlLabels();
+    });
+
+    dateBtn.addEventListener("click", () => {
+      state.showDate = !state.showDate;
+      localStorage.setItem('tv_showDate', state.showDate);
+      updateControlLabels();
+    });
+
+    themeBtn.addEventListener("click", () => {
+      state.darkTheme = !state.darkTheme;
+      localStorage.setItem('tv_darkTheme', state.darkTheme);
+      updateControlLabels();
+    });
+
+    updateControlLabels();
+
+    // Continuous Canvas Clock Rendering
     function drawUI() {
-       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const w = canvas.width;
+      const h = canvas.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const now = new Date();
 
-      // Background
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, w, h);
 
-      // Centered text
-      ctx.fillStyle = "#000000";
-      ctx.font = "45px Arial";
+      // Canvas Background
+      if (state.darkTheme) {
+        ctx.fillStyle = "#090d16";
+        ctx.fillRect(0, 0, w, h);
+
+        // Subtle gradient glow behind the clock
+        const glow = ctx.createRadialGradient(cx, cy, 10, cx, cy, 220);
+        glow.addColorStop(0, "rgba(2, 132, 199, 0.22)");
+        glow.addColorStop(1, "rgba(9, 13, 22, 0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, 0, w, h);
+      } else {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+      }
+
+      // Date string
+      if (state.showDate) {
+        const dateOptions = { weekday: 'short', month: 'short', day: 'numeric' };
+        const dateStr = now.toLocaleDateString(undefined, dateOptions);
+
+        ctx.font = "600 20px 'Outfit', -apple-system, sans-serif";
+        ctx.fillStyle = state.darkTheme ? "#38bdf8" : "#0284c7";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(dateStr.toUpperCase(), cx, cy - 46);
+      }
+
+      // Time string
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      let ampm = "";
+
+      if (!state.is24Hour) {
+        ampm = hours >= 12 ? " PM" : " AM";
+        hours = hours % 12 || 12;
+      }
+      const hourStr = String(hours).padStart(2, '0');
+      const timeStr = `${hourStr}:${minutes}:${seconds}${ampm}`;
+
+      // Time text
+      ctx.fillStyle = state.darkTheme ? "#f8fafc" : "#0f172a";
+      ctx.font = "700 52px 'JetBrains Mono', monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-
-      ctx.fillText(new Date().toLocaleTimeString(), centerX, centerY);
+      const timeY = state.showDate ? cy + 12 : cy;
+      ctx.fillText(timeStr, cx, timeY);
 
       requestAnimationFrame(drawUI);
     }
 
     drawUI();
 
-    // Stream canvas to video
-    const stream = canvas.captureStream(30); // 30fps
+    // Stream canvas to video element
+    const stream = canvas.captureStream(30); // 30 FPS
     video.srcObject = stream;
+    video.play().catch(() => {});
 
+    // Picture-in-Picture trigger
     pipBtn.addEventListener("click", async () => {
       if (document.pictureInPictureEnabled) {
         try {
-          await video.requestPictureInPicture();
+          if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture();
+          } else {
+            await video.play();
+            await video.requestPictureInPicture();
+          }
         } catch (err) {
           console.error("PiP failed:", err);
-          alert("PiP not supported on this browser.");
+          alert("Picture-in-Picture failed: " + err.message);
         }
       } else {
-        alert("Picture-in-Picture is not supported.");
+        alert("Picture-in-Picture is not supported on this browser.");
       }
     });
+
+    // PiP state listeners
+    video.addEventListener("enterpictureinpicture", () => {
+      activeBadge.style.display = "block";
+      statusText.textContent = "Live PiP";
+      pipBtn.querySelector("span").textContent = "Exit Picture-in-Picture";
+    });
+
+    video.addEventListener("leavepictureinpicture", () => {
+      activeBadge.style.display = "none";
+      statusText.textContent = "Ready";
+      pipBtn.querySelector("span").textContent = "Open Picture-in-Picture";
+    });
+
+    // PWA Install prompt handling
+    let deferredPrompt = null;
+    const installBtn = document.getElementById("installBtn");
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = "flex";
+    });
+
+    installBtn.addEventListener("click", async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        installBtn.style.display = "none";
+      }
+      deferredPrompt = null;
+    });
+
+    window.addEventListener("appinstalled", () => {
+      installBtn.style.display = "none";
+    });
+
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => {
+            console.log('Time Video Service Worker registered:', reg.scope);
+            const swStatus = document.getElementById("swStatus");
+            if (swStatus) swStatus.textContent = "Offline Ready";
+          })
+          .catch((err) => {
+            console.warn('Service Worker registration failed:', err);
+          });
+      });
+    }
   </script>
 </body>
 </html>
