@@ -298,8 +298,10 @@
       text-align: center;
       display: flex;
       align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
       gap: 8px;
-      opacity: 0.8;
+      opacity: 0.85;
     }
 
     .footer-dot {
@@ -307,6 +309,82 @@
       height: 3px;
       border-radius: 50%;
       background: var(--text-muted);
+    }
+
+    .version-tag {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 2px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .version-tag:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: #fff;
+    }
+
+    /* Update notification banner */
+    .update-banner {
+      display: none;
+      width: 100%;
+      background: linear-gradient(135deg, rgba(2, 132, 199, 0.3) 0%, rgba(56, 189, 248, 0.15) 100%);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 14px;
+      padding: 10px 14px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+      animation: bannerSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes bannerSlideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .update-banner-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .btn-update {
+      background: var(--accent-cyan);
+      color: #04101e;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+    }
+
+    .btn-update:hover {
+      background: #7dd3fc;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.45);
+    }
+
+    .btn-update:active {
+      transform: translateY(1px);
     }
 
     /* Off-screen Stream Canvas (avoid display: none so mobile WebKit/Blink retain GPU layout & frame capture) */
@@ -339,6 +417,17 @@
         <span id="statusText">Ready</span>
       </div>
     </header>
+
+    <!-- Update Notification Banner (Hidden until Service Worker finds update) -->
+    <div id="updateBanner" class="update-banner" role="alert" aria-live="polite">
+      <div class="update-banner-info">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-cyan); flex-shrink: 0;">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+        <span>Update available!</span>
+      </div>
+      <button id="updateBtn" class="btn-update" type="button">Reload</button>
+    </div>
 
     <!-- Preview Frame -->
     <section class="video-wrapper">
@@ -386,9 +475,11 @@
 
     <!-- Footer Note -->
     <footer class="footer">
-      <span>Always on top</span>
+      <button class="version-tag" id="appVersionBtn" type="button" title="App Version (Click to check for updates)">
+        <span id="appVersionText">v1.3.0</span>
+      </button>
       <span class="footer-dot"></span>
-      <span>100% Offline Ready</span>
+      <span>Always on top</span>
       <span class="footer-dot"></span>
       <span id="swStatus">PWA Active</span>
     </footer>
@@ -720,19 +811,95 @@
       installBtn.style.display = "none";
     });
 
-    // Service Worker Registration
+    // App Version & Service Worker Management
+    const APP_VERSION = 'v1.3.0';
+    const versionText = document.getElementById("appVersionText");
+    const versionBtn = document.getElementById("appVersionBtn");
+    const updateBanner = document.getElementById("updateBanner");
+    const updateBtn = document.getElementById("updateBtn");
+    const swStatus = document.getElementById("swStatus");
+
+    if (versionText) {
+      versionText.textContent = APP_VERSION;
+    }
+
+    let swRegistration = null;
+
+    function promptUserToUpdate(worker) {
+      if (updateBanner) {
+        updateBanner.style.display = "flex";
+      }
+      if (updateBtn) {
+        updateBtn.onclick = () => {
+          if (worker) {
+            worker.postMessage({ type: 'SKIP_WAITING' });
+          }
+          window.location.reload();
+        };
+      }
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
           .then((reg) => {
+            swRegistration = reg;
             console.log('Time Video Service Worker registered:', reg.scope);
-            const swStatus = document.getElementById("swStatus");
             if (swStatus) swStatus.textContent = "Offline Ready";
+
+            // If a worker is already waiting (e.g. from earlier background download)
+            if (reg.waiting && navigator.serviceWorker.controller) {
+              promptUserToUpdate(reg.waiting);
+            }
+
+            // Listen for newly installed updates
+            reg.addEventListener('updatefound', () => {
+              const installingWorker = reg.installing;
+              if (!installingWorker) return;
+
+              installingWorker.addEventListener('statechange', () => {
+                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // A new version has been installed in the background
+                  promptUserToUpdate(installingWorker);
+                }
+              });
+            });
           })
           .catch((err) => {
             console.warn('Service Worker registration failed:', err);
           });
+
+        // Auto reload if worker activates and takes over
+        let isRefreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!isRefreshing) {
+            isRefreshing = true;
+            window.location.reload();
+          }
+        });
       });
+
+      // Allow clicking the version badge to check for updates manually
+      if (versionBtn) {
+        versionBtn.addEventListener('click', async () => {
+          const originalText = versionText ? versionText.textContent : APP_VERSION;
+          if (versionText) versionText.textContent = "Checking...";
+          try {
+            if (swRegistration) {
+              await swRegistration.update();
+            } else {
+              const reg = await navigator.serviceWorker.getRegistration();
+              if (reg) await reg.update();
+            }
+            setTimeout(() => {
+              if (versionText) versionText.textContent = originalText;
+            }, 1000);
+          } catch (e) {
+            console.warn("Manual update check failed:", e);
+            if (versionText) versionText.textContent = originalText;
+          }
+        });
+      }
     }
   </script>
 </body>
