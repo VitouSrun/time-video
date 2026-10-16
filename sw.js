@@ -1,4 +1,4 @@
-const CACHE_NAME = 'time-video-pwa-v1';
+const CACHE_NAME = 'time-video-pwa-v3';
 const APP_SHELL = [
   './',
   './index.html',

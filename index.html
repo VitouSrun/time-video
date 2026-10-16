@@ -309,9 +309,14 @@
       background: var(--text-muted);
     }
 
-    /* Hidden Stream Canvas */
+    /* Off-screen Stream Canvas (avoid display: none so mobile WebKit/Blink retain GPU layout & frame capture) */
     #myCanvas {
-      display: none;
+      position: fixed;
+      top: -9999px;
+      left: -9999px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: -9999;
     }
   </style>
 </head>
@@ -338,7 +343,7 @@
     <!-- Preview Frame -->
     <section class="video-wrapper">
       <span class="pip-active-badge" id="activeBadge">In PiP</span>
-      <video id="pipVideo" autoplay muted playsinline></video>
+      <video id="pipVideo" autoplay muted playsinline webkit-playsinline></video>
     </section>
 
     <!-- Customization Options -->
@@ -425,24 +430,36 @@
       state.is24Hour = !state.is24Hour;
       localStorage.setItem('tv_24h', state.is24Hour);
       updateControlLabels();
+      renderClock();
     });
 
     dateBtn.addEventListener("click", () => {
       state.showDate = !state.showDate;
       localStorage.setItem('tv_showDate', state.showDate);
       updateControlLabels();
+      renderClock();
     });
 
     themeBtn.addEventListener("click", () => {
       state.darkTheme = !state.darkTheme;
       localStorage.setItem('tv_darkTheme', state.darkTheme);
       updateControlLabels();
+      renderClock();
     });
 
     updateControlLabels();
 
+    let animFrameId = null;
+    let bgIntervalId = null;
+    let stream = null;
+
+    function isPiPActive() {
+      return !!(document.pictureInPictureElement ||
+        (video.webkitPresentationMode === "picture-in-picture"));
+    }
+
     // Continuous Canvas Clock Rendering
-    function drawUI() {
+    function renderClock() {
       const w = canvas.width;
       const h = canvas.height;
       const cx = w / 2;
@@ -499,29 +516,160 @@
       ctx.textBaseline = "middle";
       const timeY = state.showDate ? cy + 12 : cy;
       ctx.fillText(timeStr, cx, timeY);
-
-      requestAnimationFrame(drawUI);
     }
 
-    drawUI();
+    // Smooth rendering loop while foregrounded
+    function startRenderLoop() {
+      if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+      }
+      function loop() {
+        renderClock();
+        animFrameId = requestAnimationFrame(loop);
+      }
+      animFrameId = requestAnimationFrame(loop);
+    }
 
-    // Stream canvas to video element
-    const stream = canvas.captureStream(30); // 30 FPS
-    video.srcObject = stream;
-    video.play().catch(() => {});
+    // Background heartbeat to maintain continuous canvas frames even when tab is suspended or in PiP
+    function setupBackgroundHeartbeat() {
+      if (bgIntervalId) clearInterval(bgIntervalId);
+      bgIntervalId = setInterval(() => {
+        if (document.hidden) {
+          renderClock();
+        }
+      }, 500);
+    }
+
+    // Stream canvas to video element with resilient recovery
+    function initStream(forceRecreate = false) {
+      const inPiP = isPiPActive();
+      const tracks = stream ? stream.getVideoTracks() : [];
+      const isTrackDead = !tracks.length || tracks[0].readyState === "ended";
+
+      // If already in PiP, do not rebind srcObject because that forcefully closes PiP
+      if (!stream || isTrackDead || (forceRecreate && !inPiP)) {
+        try {
+          if (stream && isTrackDead) {
+            stream.getTracks().forEach((t) => t.stop());
+          }
+          const captureFn = canvas.captureStream || canvas.webkitCaptureStream;
+          if (captureFn) {
+            stream = captureFn.call(canvas, 30);
+            video.srcObject = stream;
+          }
+        } catch (err) {
+          console.warn("captureStream error:", err);
+        }
+      }
+
+      if (video.paused) {
+        video.play().catch((err) => {
+          console.warn("Video play error:", err);
+        });
+      }
+    }
+
+    // Initial warm-up render BEFORE capturing stream to prevent empty texture bugs in Safari
+    renderClock();
+    initStream(true);
+    startRenderLoop();
+    setupBackgroundHeartbeat();
+
+    // Recover playback when returning to the PWA from another app
+    function handleAppResume() {
+      renderClock();
+      startRenderLoop();
+      initStream(!isPiPActive());
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        handleAppResume();
+      }
+    });
+
+    window.addEventListener("pageshow", handleAppResume);
+    window.addEventListener("focus", handleAppResume);
+
+    // Auto-resume if the browser pauses the video while the PWA is active
+    video.addEventListener("pause", () => {
+      if (!document.hidden && !isPiPActive()) {
+        video.play().catch(() => {});
+      }
+    });
+
+    function updatePiPUI(isActive) {
+      activeBadge.style.display = isActive ? "block" : "none";
+      statusText.textContent = isActive ? "Live PiP" : "Ready";
+      const btnSpan = pipBtn.querySelector("span");
+      if (btnSpan) {
+        btnSpan.textContent = isActive ? "Exit Picture-in-Picture" : "Open Picture-in-Picture";
+      }
+    }
 
     // Picture-in-Picture trigger
     pipBtn.addEventListener("click", async () => {
-      if (document.pictureInPictureEnabled) {
+      // 1. Check if already in PiP (Standard or WebKit)
+      if (document.pictureInPictureElement) {
         try {
-          if (document.pictureInPictureElement) {
-            await document.exitPictureInPicture();
-          } else {
-            await video.play();
-            await video.requestPictureInPicture();
-          }
+          await document.exitPictureInPicture();
         } catch (err) {
+          console.error("Exit PiP failed:", err);
+        }
+        return;
+      }
+      if (video.webkitPresentationMode === "picture-in-picture" && typeof video.webkitSetPresentationMode === "function") {
+        try {
+          video.webkitSetPresentationMode("inline");
+        } catch (err) {
+          console.error("Exit WebKit PiP failed:", err);
+        }
+        return;
+      }
+
+      // 2. Ensure video playback is running SYNCHRONOUSLY without awaiting.
+      // Crucial: Awaiting video.play() loses transient user activation in WebKit/iOS Safari,
+      // causing the error "The request is not triggered by a user activation".
+      if (video.paused) {
+        video.play().catch(() => {});
+      }
+
+      // 3. Request Picture-in-Picture
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const supportsWebKit = typeof video.webkitSetPresentationMode === "function";
+      const supportsStandard = typeof video.requestPictureInPicture === "function";
+
+      // On iOS Safari / standalone PWA, WebKit presentation mode is native and synchronous
+      if (isIOS && supportsWebKit) {
+        try {
+          video.webkitSetPresentationMode("picture-in-picture");
+          return;
+        } catch (webkitErr) {
+          console.warn("WebKit PiP failed, falling back to standard API:", webkitErr);
+        }
+      }
+
+      if (supportsStandard) {
+        try {
+          await video.requestPictureInPicture();
+        } catch (err) {
+          if (supportsWebKit) {
+            try {
+              video.webkitSetPresentationMode("picture-in-picture");
+              return;
+            } catch (webkitErr) {
+              console.error("WebKit PiP fallback failed:", webkitErr);
+            }
+          }
           console.error("PiP failed:", err);
+          alert("Picture-in-Picture failed: " + err.message);
+        }
+      } else if (supportsWebKit) {
+        try {
+          video.webkitSetPresentationMode("picture-in-picture");
+        } catch (err) {
+          console.error("WebKit PiP failed:", err);
           alert("Picture-in-Picture failed: " + err.message);
         }
       } else {
@@ -529,17 +677,23 @@
       }
     });
 
-    // PiP state listeners
+    // PiP state listeners (Standard W3C + Apple WebKit)
     video.addEventListener("enterpictureinpicture", () => {
-      activeBadge.style.display = "block";
-      statusText.textContent = "Live PiP";
-      pipBtn.querySelector("span").textContent = "Exit Picture-in-Picture";
+      updatePiPUI(true);
+      if (video.paused) video.play().catch(() => {});
     });
-
     video.addEventListener("leavepictureinpicture", () => {
-      activeBadge.style.display = "none";
-      statusText.textContent = "Ready";
-      pipBtn.querySelector("span").textContent = "Open Picture-in-Picture";
+      updatePiPUI(false);
+      initStream(true);
+    });
+    video.addEventListener("webkitpresentationmodechanged", () => {
+      const inPiP = video.webkitPresentationMode === "picture-in-picture";
+      updatePiPUI(inPiP);
+      if (!inPiP) {
+        initStream(true);
+      } else if (video.paused) {
+        video.play().catch(() => {});
+      }
     });
 
     // PWA Install prompt handling
