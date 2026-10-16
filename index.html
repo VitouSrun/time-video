@@ -270,6 +270,15 @@
       box-shadow: 0 4px 12px -2px rgba(2, 132, 199, 0.5);
     }
 
+    @keyframes pipPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+      50% { box-shadow: 0 0 0 12px rgba(56, 189, 248, 0); }
+    }
+
+    .pulse-highlight {
+      animation: pipPulse 1.5s infinite;
+    }
+
     .btn-install {
       display: none;
       width: 100%;
@@ -396,6 +405,154 @@
       pointer-events: none;
       z-index: -9999;
     }
+
+    /* iOS Standalone Warning Banner */
+    .ios-notice-banner {
+      width: 100%;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      color: #fbbf24;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+    .ios-notice-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.4;
+      text-align: left;
+    }
+    .btn-safari-link {
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #fef3c7;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .btn-safari-link:hover {
+      background: rgba(245, 158, 11, 0.35);
+    }
+
+    /* Modal dialog for iOS standalone mode */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 380px;
+      background: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 189, 248, 0.15);
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      animation: modalScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes modalScaleUp {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-icon-badge {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .modal-body {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #94a3b8;
+    }
+    .modal-actions {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .btn-modal-primary {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--accent-blue) 0%, #0369a1 100%);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-modal-primary:hover {
+      background: linear-gradient(135deg, #0284c7 0%, var(--accent-hover) 100%);
+    }
+    .btn-modal-secondary {
+      width: 100%;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #e2e8f0;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-modal-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .btn-modal-text {
+      width: 100%;
+      padding: 8px;
+      background: transparent;
+      border: none;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .btn-modal-text:hover {
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
@@ -427,6 +584,19 @@
         <span>Update available!</span>
       </div>
       <button id="updateBtn" class="btn-update" type="button">Reload</button>
+    </div>
+
+    <!-- iOS Standalone Notice Banner (Visible only when launched from iOS Home Screen) -->
+    <div id="iosStandaloneBanner" class="ios-notice-banner" style="display: none;" role="alert">
+      <div class="ios-notice-content">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; color: #f59e0b;">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span><strong>iOS Home Screen:</strong> Apple restricts floating PiP here. Tap to switch to Safari.</span>
+      </div>
+      <button id="openSafariNoticeBtn" class="btn-safari-link" type="button">Switch</button>
     </div>
 
     <!-- Preview Frame -->
@@ -476,7 +646,7 @@
     <!-- Footer Note -->
     <footer class="footer">
       <button class="version-tag" id="appVersionBtn" type="button" title="App Version (Click to check for updates)">
-        <span id="appVersionText">v1.3.0</span>
+        <span id="appVersionText">v1.3.1</span>
       </button>
       <span class="footer-dot"></span>
       <span>Always on top</span>
@@ -484,6 +654,29 @@
       <span id="swStatus">PWA Active</span>
     </footer>
   </main>
+
+  <!-- iOS Standalone Modal Dialog -->
+  <div id="iosModal" class="modal-backdrop" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="iosModalTitle">
+    <div class="modal-card">
+      <div class="modal-icon-badge">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="3" ry="3"></rect>
+          <rect x="12" y="11" width="8" height="6" rx="1.5" ry="1.5" fill="currentColor" fill-opacity="0.3"></rect>
+        </svg>
+      </div>
+      <h2 id="iosModalTitle" class="modal-title">Open in Safari for PiP</h2>
+      <p class="modal-body">
+        Apple restricts Picture-in-Picture when web apps are launched from the iOS Home Screen.
+        <br><br>
+        To float the clock over your other apps, please open this page in the <strong>Safari browser</strong>.
+      </p>
+      <div class="modal-actions">
+        <button id="btnOpenInSafari" class="btn-modal-primary" type="button">Open in Safari</button>
+        <button id="btnCopyUrl" class="btn-modal-secondary" type="button">Copy URL</button>
+        <button id="btnCloseModal" class="btn-modal-text" type="button">Close</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     // State management & Persistence
@@ -496,6 +689,8 @@
     const canvas = document.getElementById("myCanvas");
     const ctx = canvas.getContext("2d");
     const video = document.getElementById("pipVideo");
+    video.muted = true;
+    video.playsInline = true;
     const pipBtn = document.getElementById("startPip");
     const activeBadge = document.getElementById("activeBadge");
     const statusText = document.getElementById("statusText");
@@ -699,6 +894,82 @@
       }
     }
 
+    // Platform and Display mode detection
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const isStandalone = Boolean(('standalone' in navigator && navigator.standalone) || window.matchMedia('(display-mode: standalone)').matches);
+
+    // iOS standalone handling UI
+    const iosBanner = document.getElementById("iosStandaloneBanner");
+    const iosModal = document.getElementById("iosModal");
+    const openSafariNoticeBtn = document.getElementById("openSafariNoticeBtn");
+    const btnOpenInSafari = document.getElementById("btnOpenInSafari");
+    const btnCopyUrl = document.getElementById("btnCopyUrl");
+    const btnCloseModal = document.getElementById("btnCloseModal");
+
+    if (isIOS && isStandalone && iosBanner) {
+      iosBanner.style.display = "flex";
+    }
+
+    function showIOSStandaloneModal() {
+      if (iosModal) iosModal.style.display = "flex";
+    }
+
+    function hideIOSStandaloneModal() {
+      if (iosModal) iosModal.style.display = "none";
+    }
+
+    if (openSafariNoticeBtn) {
+      openSafariNoticeBtn.addEventListener("click", showIOSStandaloneModal);
+    }
+    if (btnOpenInSafari) {
+      btnOpenInSafari.addEventListener("click", () => {
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.set("pip", "1");
+          window.open(u.toString(), "_blank");
+        } catch {
+          window.open(window.location.href, "_blank");
+        }
+      });
+    }
+    if (btnCloseModal) {
+      btnCloseModal.addEventListener("click", hideIOSStandaloneModal);
+    }
+    if (iosModal) {
+      iosModal.addEventListener("click", (e) => {
+        if (e.target === iosModal) hideIOSStandaloneModal();
+      });
+    }
+    if (btnCopyUrl) {
+      btnCopyUrl.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          btnCopyUrl.textContent = "Copied to clipboard!";
+          setTimeout(() => {
+            btnCopyUrl.textContent = "Copy URL";
+          }, 2000);
+        } catch {
+          prompt("Copy this URL and open it in Safari:", window.location.href);
+        }
+      });
+    }
+
+    // Check if opened from PWA "Open in Safari" with ?pip=1
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("pip") === "1" && !isStandalone) {
+        pipBtn.classList.add("pulse-highlight");
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("pip");
+        window.history.replaceState({}, document.title, cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : ''));
+        pipBtn.addEventListener("click", () => {
+          pipBtn.classList.remove("pulse-highlight");
+        }, { once: true });
+      }
+    } catch (e) {
+      console.warn("URL params check error:", e);
+    }
+
     // Picture-in-Picture trigger
     pipBtn.addEventListener("click", async () => {
       // 1. Check if already in PiP (Standard or WebKit)
@@ -723,48 +994,57 @@
       // Crucial: Awaiting video.play() loses transient user activation in WebKit/iOS Safari,
       // causing the error "The request is not triggered by a user activation".
       if (video.paused) {
-        video.play().catch(() => {});
+        video.play().catch((err) => console.warn("Video play error:", err));
       }
 
-      // 3. Request Picture-in-Picture
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      const supportsWebKit = typeof video.webkitSetPresentationMode === "function";
-      const supportsStandard = typeof video.requestPictureInPicture === "function";
-
-      // On iOS Safari / standalone PWA, WebKit presentation mode is native and synchronous
-      if (isIOS && supportsWebKit) {
-        try {
-          video.webkitSetPresentationMode("picture-in-picture");
-          return;
-        } catch (webkitErr) {
-          console.warn("WebKit PiP failed, falling back to standard API:", webkitErr);
-        }
+      // 3. Apple WebKit limitation: PiP windowing is blocked in iOS standalone Home Screen web apps
+      if (isIOS && isStandalone) {
+        showIOSStandaloneModal();
+        return;
       }
 
-      if (supportsStandard) {
+      let pipSuccess = false;
+      let lastError = null;
+
+      // 4. Try standard W3C Picture-in-Picture API first (modern Safari iOS 13.4+, macOS, Chrome, Edge)
+      if (typeof video.requestPictureInPicture === "function") {
         try {
           await video.requestPictureInPicture();
+          pipSuccess = true;
+          return;
         } catch (err) {
-          if (supportsWebKit) {
-            try {
-              video.webkitSetPresentationMode("picture-in-picture");
-              return;
-            } catch (webkitErr) {
-              console.error("WebKit PiP fallback failed:", webkitErr);
-            }
+          console.warn("video.requestPictureInPicture failed:", err);
+          if (isIOS && (err.name === "NotSupportedError" || isStandalone)) {
+            showIOSStandaloneModal();
+            return;
           }
-          console.error("PiP failed:", err);
-          alert("Picture-in-Picture failed: " + err.message);
+          lastError = err;
         }
-      } else if (supportsWebKit) {
+      }
+
+      // 5. Fallback: WebKit presentation mode (ONLY if explicitly supported by the video element)
+      if (!pipSuccess &&
+          typeof video.webkitSupportsPresentationMode === "function" &&
+          video.webkitSupportsPresentationMode("picture-in-picture") &&
+          typeof video.webkitSetPresentationMode === "function") {
         try {
           video.webkitSetPresentationMode("picture-in-picture");
-        } catch (err) {
-          console.error("WebKit PiP failed:", err);
-          alert("Picture-in-Picture failed: " + err.message);
+          pipSuccess = true;
+          return;
+        } catch (webkitErr) {
+          console.warn("WebKit presentation mode failed:", webkitErr);
+          lastError = webkitErr;
         }
-      } else {
-        alert("Picture-in-Picture is not supported on this browser.");
+      }
+
+      // 6. If neither succeeded, ensure the user is notified with an error message
+      if (!pipSuccess) {
+        if (lastError) {
+          console.error("PiP trigger error:", lastError);
+          alert("Picture-in-Picture failed: " + (lastError.message || lastError));
+        } else {
+          alert("Picture-in-Picture is not supported on this browser.");
+        }
       }
     });
 
@@ -812,7 +1092,7 @@
     });
 
     // App Version & Service Worker Management
-    const APP_VERSION = 'v1.3.0';
+    const APP_VERSION = 'v1.3.1';
     const versionText = document.getElementById("appVersionText");
     const versionBtn = document.getElementById("appVersionBtn");
     const updateBanner = document.getElementById("updateBanner");
